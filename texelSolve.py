@@ -9,17 +9,10 @@ from bsdf import *
 
 import numpy as np
 from scipy.optimize import minimize
-from multiprocessing import Array
 
-POOL_SIZE = 4
-NUM_VAR_DIFFUSE = 3
 NUM_VAR_BSDF = 5
 
-resolution = (512, 512)
-predictionsSize = resolution[0] * resolution[1] * NUM_VAR_BSDF
-sharedArray = Array('d', predictionsSize, lock=False)
-
-def getBoundsAndInitialParameters(bsdf: str):
+def getDefaultBoundsAndInitialParameters(bsdf: str):
     w0 = [0.01]
     bounds = [(0, 1)]
     
@@ -30,59 +23,128 @@ def getBoundsAndInitialParameters(bsdf: str):
             return w0 * 5, bounds * 5
         case _:
             print('Error: Unknown BSDF')
+            
+
+def bsdfEvaluate(bsdf, w0, parameters, args):
+    '''
+    Parameters:
+    - w0: unknown parameters (to optimize)
+    - parameters: given scene parameters
+    - args: additional arguments
+    '''
+    
+    match(bsdf):
+        case 'diffuse':
+            return bsdfDiffuse(w0, parameters)
+            
+        case 'bsdf': 
+            return bsdfPrincipled(w0, parameters, args)
+            
+        case _:
+            print('Error: Unknown BSDF')
+            
+def unpackScene(bsdf, scene):
+    '''
+    Unpacks and validates scene parameters. 
+    
+    Returns: 
+    - shouldInclude: True if parameters are valid, False otherwise
+    - correct: 1 x 3 array (RGB)
+    - parameters: p x 3 array
+    - lightColor: 1 x 1 scalar
+    '''
+    
+    try:
+        if (bsdf == 'bsdf'):
+            correct = np.array(scene['correct'])
+            ray_d = np.array(scene['ray.d'])
+            hit_p = np.array(scene['hit.p'])
+            hit_sn = np.array(scene['hit.sn'])
+            light = np.array(scene['light'])
+            
+            if (np.all(correct == 0) or light[3] == 0):
+                return False, None, None, None
+            
+            return True, correct, [ray_d, hit_p, hit_sn, light[:3]], [light[3]]
+    
+    # parameters missing
+    except:
+        return False, None, None, None
+    
+    # unknown bsdf
+    return False, None, None, None
+
+def bsdfWithError(w0, bsdf, texelScenes, clampColors, minScenes):
+    allCorrect = []
+    allParameters = []
+    allLightColors = []
+    
+    for scene, parameters in texelScenes.items():
+        isSceneValid, correct, parameters, lightColor = unpackScene(bsdf, parameters)
+        
+        if (not isSceneValid):
+            continue
+        
+        allCorrect.append(correct)
+        allParameters.append(parameters)
+        allLightColors.append(lightColor)
+    
+    # enough scenes? 
+    if len(allCorrect) < minScenes:
+        return 0
+    
+    n = len(allCorrect)
+    allCorrect = np.array(allCorrect)                       # n x 3
+    allParameters = np.stack(allParameters, axis=1)         # p x n x 3
+    allLightColors = np.array(allLightColors)               # n x 1
+    allw0 = np.tile(w0, (n, 1))                             # n x w
+    
+    # evaluate BSDF for all valid scenes
+    try: 
+        allPredicted = bsdfEvaluate(bsdf, allw0, allParameters, allLightColors) # n x 3
+    except:
+        raise
+    
+    if clampColors:
+        allCorrect = np.clip(allCorrect, 0, 1)
+        allPredicted = np.clip(allPredicted, 0, 1)
+    
+    error = squareError(allCorrect, allPredicted)
+    return error / len(allCorrect)
 
 def optimize(
-    bsdf: str, texelScenes, 
+    bsdf, texelScenes, 
+    w0=None, 
+    bounds=None, 
     method='Nelder-Mead', 
     methodOptions={'xatol': 1/256, 'maxiter': 100, 'adaptive': True},
-    clampColors = False):
+    clampColors = False,
+    minScenes = 1):
     
-    w0, bounds = getBoundsAndInitialParameters(bsdf)
+    if (w0 is None or bounds is None):
+        w0, bounds = getDefaultBoundsAndInitialParameters(bsdf)
     
     res = minimize(bsdfWithError, 
         x0=w0,
         method=method,
         bounds=bounds,
-        args=(bsdf, texelScenes, clampColors),
+        args=(bsdf, texelScenes, clampColors, minScenes),
         options=methodOptions
     )
             
     return res.x, res.fun
 
-def solveTexel(bsdf, v, u, scenes):
-    # u = int(u)
-    # v = int(v)
-    # predictions[u, v] = np.array([-1, 0, 0, 0, 0])
-    # return 
+def solveTexel(bsdf, v, u, scenes, optimizationParameters):
     try:    
-        uvPrediction, uvError = optimize(bsdf, scenes, clampColors=True)
-        # uvPrediction = uvPrediction if uvError > 0 else np.zeros(NUM_VAR_BSDF)
+        uvPrediction, uvError = optimize(bsdf, scenes, **optimizationParameters)
         uvPrediction = uvPrediction if uvError > 0 else np.zeros(NUM_VAR_BSDF)
-        uvError = uvError if uvError > 0 else 0
         return uvPrediction, uvError
-        # predictions[u, v] = uvPrediction if uvError > 0 else np.zeros(NUM_VAR_BSDF)
-        # errors[u, v] = uvError if uvError > 0 else 0
     
     except Exception as err: 
         print(f'Something went wrong. Texel: ({u}, {v}), Error: {err=}')
         return np.zeros(NUM_VAR_BSDF), 0
-
-def solveTexel2(bsdf, v, row):
-    # time.sleep(0.01)
-    for u, scenes in row.items():
-        # predictions[int(u), int(v)] = np.array([-1, 0, 0, 0, 0])
-        u = int(u)
-        v = int(v)
-     
-        try:    
-            uvPrediction, uvError = optimize(bsdf, scenes)
-            # predictions[u, v] = uvPrediction if uvError > 0 else np.zeros(NUM_VAR_BSDF)
-            # errors[u, v] = uvError if uvError > 0 else 0
-        
-        except Exception as err: 
-            print(f'Something went wrong. Texel: ({u}, {v}), Error: {err=}')
     
-def processChunkSeparately(bsdf, chunk, resolution):
+def processChunkSeparately(chunk, bsdf, resolution, optimizationParameters):
     errors = np.zeros(resolution) 
     predictions = np.zeros((*resolution, NUM_VAR_BSDF))
 
@@ -90,28 +152,8 @@ def processChunkSeparately(bsdf, chunk, resolution):
         for u, scenes in row.items():
             u = int(u)
             v = int(v)
-            prediction, error = solveTexel(bsdf, v, u, scenes)
+            prediction, error = solveTexel(bsdf, v, u, scenes, optimizationParameters)
             predictions[u, v] = prediction
             errors[u, v] = error
     
     return predictions, errors
-        
-def processChunkWithSharedArray(bsdf, chunk, sharedPredictions):
-    for v, row in chunk:
-        for u, scenes in row.items():
-            u = int(u)
-            v = int(v)
-            prediction, error = solveTexel(bsdf, v, u, scenes)
-            sharedPredictions[v, u] = prediction
-
-def testProcessChunkWithSharedArray(bsdf, chunk, predictionsSharedArray):
-    predictionsNPArray = np.frombuffer(sharedArray, dtype=float).reshape((512, 512, NUM_VAR_BSDF))
-    
-    for v, row in chunk:
-        for u, scenes in row.items():
-            u = int(u)
-            v = int(v)
-            # prediction, error = solveTexel(bsdf, v, u, scenes)
-            predictionsNPArray[v, u] = -1
-
-    
