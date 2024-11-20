@@ -1,0 +1,18 @@
+# Cache
+__pycache__/
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.venv
+
+# Data
+data
+out
+
+# Drafts
+drafts.ipynb
+test.py
+ex.py
