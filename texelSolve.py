@@ -1,8 +1,8 @@
-# -----------------------------------------------------------------
-# texelSolve.py - optimizer
+# 
+# texelSolve.py - texel solving module
 #
 # Jessie Li & Michael Riad Zaky, CS 77/277, Fall 2024
-# -----------------------------------------------------------------
+#
 
 from utils import * 
 from bsdf import *

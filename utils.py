@@ -1,8 +1,8 @@
-# -----------------------------------------------------------------
-# utils.py 
+# 
+# utils.py - utility functions for common vector and matrix operations
 #
 # Jessie Li & Michael Riad Zaky, CS 77/277, Fall 2024
-# -----------------------------------------------------------------
+# 
 
 import numpy as np
 
@@ -18,7 +18,6 @@ def normalizeRows(m):
     return m / d
 
 def dotRows(a, b):
-    # return np.sum(a * b, axis=1)
     return np.sum(a * b, axis=1, keepdims=True)
 
 def floatToVec3(f):
