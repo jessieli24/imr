@@ -144,7 +144,10 @@ def solveTexel(bsdf, v, u, scenes, optimizationParameters):
         print(f'Something went wrong. Texel: ({u}, {v}), Error: {err=}')
         return np.zeros(NUM_VAR_BSDF), 0
     
-def processChunkSeparately(chunk, bsdf, resolution, optimizationParameters):
+def processChunk(chunk, bsdf, resolution, optimizationParameters):
+    '''
+    Processes a chunk of rows.
+    '''
     errors = np.zeros(resolution) 
     predictions = np.zeros((*resolution, NUM_VAR_BSDF))
 
@@ -157,3 +160,20 @@ def processChunkSeparately(chunk, bsdf, resolution, optimizationParameters):
             errors[u, v] = error
     
     return predictions, errors
+
+def processRow(v, row, bsdf, resolutionU, optimizationParameters):
+    '''
+    Processes a single row.
+    '''
+    
+    errors = np.zeros(resolutionU) 
+    predictions = np.zeros((resolutionU, NUM_VAR_BSDF))
+
+    v = int(v)
+    for u, scenes in row.items():
+        u = int(u)
+        prediction, error = solveTexel(bsdf, v, u, scenes, optimizationParameters)
+        predictions[u] = prediction
+        errors[u] = error
+    
+    return v, predictions, errors

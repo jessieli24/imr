@@ -1,0 +1,63 @@
+-----------------------------------------------------------------
+Data & Parameters
+-----------------------------------------------------------------
+
+File: ./data/cerberus512.json
+BSDF: bsdf
+Resolution: [512, 512]
+
+# optimization
+NUM_PROCESSES = 8
+PROCESS_TIMEOUT = 3000
+
+# parameters for scipy.optimize.minimize
+OPTIMIZER_PARAMETERS = {
+    'w0': [0.01] * 5,
+    'bounds': [(0, 1)] * 5,
+    'method': 'Nelder-Mead',
+    'methodOptions': { 'xatol': 1/256, 'maxiter': 100, 'adaptive': True },
+    'clampColors': True,
+    'minScenes': 4,
+}
+
+-----------------------------------------------------------------
+Multiprocessing: Rows
+-----------------------------------------------------------------
+
+Creating pool with 8 workers, operating on rows
+
+Time elapsed (8 processes): 192.838001 seconds
+Nonzero count after solve (should be >> 0): 408171
+
+Max error: 1.4375266195263319
+Mean error (including zeros): 0.009653074775430287
+Mean error (excluding zeros): 0.02853738605810559
+
+-----------------------------------------------------------------
+Multiprocessing: Chunks
+-----------------------------------------------------------------
+
+Creating 8 processes with chunk size 63
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+Updated predictions.
+Updated errors.
+
+Time elapsed (8 processes): 218.790192 seconds
+Nonzero count after solve (should be >> 0): 405746
+
+Max error: 1.4375266195263319
+Mean error (including zeros): 0.009558934050236074
+Mean error (excluding zeros): 0.02844836356237963
