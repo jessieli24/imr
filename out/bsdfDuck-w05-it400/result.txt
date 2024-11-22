@@ -1,0 +1,36 @@
+-----------------------------------------------------------------
+Data & Parameters
+-----------------------------------------------------------------
+
+# data
+DATA_NAME = 'cerberus512'
+DATA_FILE = f'./data/{DATA_NAME}.json'
+
+# optimization
+NUM_PROCESSES = 8
+PROCESS_TIMEOUT = 3000
+
+# parameters for scipy.optimize.minimize
+OPTIMIZER_PARAMETERS = {
+    'w0': [0.5] * 5,
+    'bounds': [(0, 1)] * 5,
+    'method': 'Nelder-Mead',
+    'methodOptions': { 'xatol': 1/256, 'fatol': 1/512, 'maxiter': 400, 'adaptive': True },
+    'clampColors': True,
+    'minScenes': 1,
+}
+
+GAMMA = 2.2
+
+-----------------------------------------------------------------
+Multiprocessing: Rows
+-----------------------------------------------------------------
+
+Creating pool with 8 workers, operating on rows
+
+Time elapsed (8 processes): 266.361422 seconds
+Nonzero count after solve (should be >> 0): 362939
+
+Max error: 1.7751558560742433
+Mean error (including zeros): 0.0003850916264303145
+Mean error (excluding zeros): 0.001367248954667882

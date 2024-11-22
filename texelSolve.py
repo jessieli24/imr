@@ -10,8 +10,6 @@ from bsdf import *
 import numpy as np
 from scipy.optimize import minimize
 
-NUM_VAR_BSDF = 5
-
 def getDefaultBoundsAndInitialParameters(bsdf: str):
     w0 = [0.01]
     bounds = [(0, 1)]
@@ -23,7 +21,6 @@ def getDefaultBoundsAndInitialParameters(bsdf: str):
             return w0 * 5, bounds * 5
         case _:
             print('Error: Unknown BSDF')
-            
 
 def bsdfEvaluate(bsdf, w0, parameters, args):
     '''
@@ -32,10 +29,9 @@ def bsdfEvaluate(bsdf, w0, parameters, args):
     - parameters: given scene parameters
     - args: additional arguments
     '''
-    
     match(bsdf):
         case 'diffuse':
-            return bsdfDiffuse(w0, parameters)
+            return bsdfDiffuse(w0, args)
             
         case 'bsdf': 
             return bsdfPrincipled(w0, parameters, args)
@@ -53,7 +49,6 @@ def unpackScene(bsdf, scene):
     - parameters: p x 3 array
     - lightColor: 1 x 1 scalar
     '''
-    
     try:
         if (bsdf == 'bsdf'):
             correct = np.array(scene['correct'])
@@ -69,11 +64,49 @@ def unpackScene(bsdf, scene):
     
     # parameters missing
     except:
+        print('JSON error.')
         return False, None, None, None
     
     # unknown bsdf
     return False, None, None, None
 
+def diffuseWithError(w0, bsdf, texelScenes, clampColors, minScenes):
+    allCorrect = []
+    allLightColors = []
+    
+    for scene, parameters in texelScenes.items():
+        correct = np.array(parameters['correct'])
+        radiance = np.array(parameters['radiance'])
+        
+        if (np.all(correct == 0) or radiance[0] == 0):
+                continue
+        
+        allCorrect.append(correct)
+        allLightColors.append([radiance[0]])
+    
+    # enough scenes? 
+    if len(allCorrect) < minScenes:
+        return 0
+    
+    n = len(allCorrect)
+    allCorrect = np.array(allCorrect)                       # n x 3
+    allLightColors = np.array(allLightColors)               # n x 1
+    allw0 = np.tile(w0, (n, 1))                             # n x w
+    
+    # evaluate BSDF for all valid scenes
+    try: 
+        allPredicted = bsdfDiffuse(allw0, allLightColors)
+    except:
+        raise
+    
+    if clampColors:
+        allCorrect = np.clip(allCorrect, 0, 1)
+        allPredicted = np.clip(allPredicted, 0, 1)
+    
+    error = squareError(allCorrect, allPredicted)
+    return error / len(allCorrect)
+    
+    
 def bsdfWithError(w0, bsdf, texelScenes, clampColors, minScenes):
     allCorrect = []
     allParameters = []
@@ -124,7 +157,9 @@ def optimize(
     if (w0 is None or bounds is None):
         w0, bounds = getDefaultBoundsAndInitialParameters(bsdf)
     
-    res = minimize(bsdfWithError, 
+    bsdfFunction = bsdfWithError if bsdf == 'bsdf' else diffuseWithError
+    
+    res = minimize(bsdfFunction, 
         x0=w0,
         method=method,
         bounds=bounds,
@@ -165,7 +200,6 @@ def processRow(v, row, bsdf, resolutionU, optimizationParameters):
     '''
     Processes a single row.
     '''
-    
     errors = np.zeros(resolutionU) 
     predictions = np.zeros((resolutionU, NUM_VAR_BSDF))
 

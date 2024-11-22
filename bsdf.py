@@ -66,14 +66,8 @@ def fresnelSchlick (cosTheta: float, F0):
 # bsdf functions
 # -----------------------------------------------------------------
 
-def bsdfDiffuse(w, args):
-    radiance = np.array(args['radiance'], dtype=float)
-    
-    if (np.all(radiance == 0)):
-        return False, w
-    
-    return True, np.array(w) * radiance
-    
+def bsdfDiffuse(w, radiance):
+    return w * radiance
 
 def bsdfPrincipled(w, sceneParameters, lightColor):
     '''

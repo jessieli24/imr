@@ -1,0 +1,35 @@
+-----------------------------------------------------------------
+Data & Parameters
+-----------------------------------------------------------------
+
+# data
+DATA_NAME = 'cerberus512-8scenes'
+DATA_FILE = f'./data/{DATA_NAME}.json'
+
+# optimization
+NUM_PROCESSES = 8
+PROCESS_TIMEOUT = 3000
+
+OPTIMIZER_PARAMETERS = {
+    'w0': [0.5] * 3,
+    'bounds': [(0, 1)] * 3,
+    'method': 'Nelder-Mead',
+    'methodOptions': { 'xatol': 1/256, 'maxiter': 100, 'adaptive': True },
+    'clampColors': False,
+    'minScenes': 1,
+}
+
+GAMMA = 2.2
+
+-----------------------------------------------------------------
+Multiprocessing: Rows
+-----------------------------------------------------------------
+
+Creating pool with 8 workers, operating on rows
+
+Time elapsed (8 processes): 23.553844 seconds
+Nonzero count after solve (should be >> 0): 215504
+
+Max error: 0.09590074004328669
+Mean error (including zeros): 0.00015745074985449347
+Mean error (excluding zeros): 0.0005469537305680443
